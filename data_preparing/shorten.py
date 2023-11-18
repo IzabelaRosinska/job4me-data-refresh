@@ -1,6 +1,8 @@
 
 from tqdm import tqdm
 
+from utils.file_reader import read_json
+
 offers = read_json('../files/offers.json')
 companies = read_json('../files/companies.json')
 

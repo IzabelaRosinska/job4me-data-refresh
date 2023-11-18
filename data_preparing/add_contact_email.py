@@ -1,5 +1,7 @@
 import random
 
+from utils.file_reader import read_json, write_json
+
 
 def add_contact_email():
     employees = read_json('../files/employees.json')

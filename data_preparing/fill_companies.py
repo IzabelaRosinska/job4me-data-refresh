@@ -1,5 +1,7 @@
 import random
 
+from utils.file_reader import read_json, write_json
+
 
 def get_counter():
     companies = read_json('../files/companies.json')

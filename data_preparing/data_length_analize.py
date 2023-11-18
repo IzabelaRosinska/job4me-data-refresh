@@ -1,5 +1,7 @@
 import math
 
+from utils.file_reader import read_json
+
 
 def check_companies_lengths():
     companies = read_json('../files/companies.json')
@@ -57,8 +59,8 @@ def check_employees_lengths():
         lengths['skills_2'][str(math.ceil(max([0] + [len(req) for req in employee['skills']]) / 10) * 10)] += 1
         lengths['projects_1'].setdefault(str(len(employee['projects'])), 0)
         lengths['projects_1'][str(len(employee['projects']))] += 1
-        lengths['projects_2'].setdefault(str(math.ceil(max([0] + [len(req) for req in employee['projects']]) / 10) * 10)
-                                         , 0)
+        lengths['projects_2'].setdefault(str(math.ceil(max([0] + [len(req) for req in employee['projects']]) / 10)
+                                             * 10), 0)
         lengths['projects_2'][str(math.ceil(max([0] + [len(req) for req in employee['projects']]) / 10) * 10)] += 1
     print(lengths)
 
@@ -75,7 +77,8 @@ def check_offers_lengths():
         lengths['localizations_1'][str(len(offer['localizations']))] += 1
         lengths['localizations_2'].setdefault(
             str(math.ceil(max([0] + [len(req) for req in offer['localizations']]) / 10) * 10), 0)
-        lengths['localizations_2'][str(math.ceil(max([0] + [len(req) for req in offer['localizations']]) / 10) * 10)] += 1
+        lengths['localizations_2'][
+            str(math.ceil(max([0] + [len(req) for req in offer['localizations']]) / 10) * 10)] += 1
         lengths['duties'].setdefault(str(math.ceil(len(offer['duties']) / 100) * 100), 0)
         lengths['duties'][str(math.ceil(len(offer['duties']) / 100) * 100)] += 1
         lengths['description'].setdefault(str(math.ceil(len(offer['description']) / 100) * 100), 0)

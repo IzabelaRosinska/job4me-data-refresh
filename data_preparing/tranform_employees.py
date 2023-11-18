@@ -1,3 +1,6 @@
+from utils.file_reader import read_json, read_jsonl, write_json
+
+
 def make_dict(employees):
     return {str(i): {'email': employee['email'], "password": employee['password'], "name": employee['name'],
                      "phone": employee['phone'], "branches": employee["branches"], "education": employee['education'],
