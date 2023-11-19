@@ -1,34 +1,39 @@
 from sentence_transformers import SentenceTransformer
-from tqdm import tqdm
 
 from utils.file_reader import *
 from matching.recommendation import Recommender
 from utils.utils import get_dict_part
+from process_data import *
 
 
-def save_embeddings(input_file, destination_file, sections_to_process: list[list[str]], update: bool = True):
-    sentence_transformer = SentenceTransformer('sentence-transformers/LaBSE')
-    embeddings = {}
-    texts = read_json(input_file)
-    for text_id, text in tqdm(texts.items()):
-        text_embeddings = {}
-        for keys in sections_to_process:
-            text_to_process = "\n".join([('\n'.join(text[key]) if isinstance(text[key], list) else text[key])
-                                         for key in keys if key in text])
-            if text_to_process:
-                text_embeddings['+'.join(keys)] =\
-                    sentence_transformer.encode(text_to_process, convert_to_tensor=True).tolist()
-        embeddings[text_id] = text_embeddings
-    update_json(destination_file, embeddings) if update else write_json(destination_file, embeddings)
-
-
-def save_labels(input_file, recommender: Recommender, branches_weights: dict[str, float], destination_file: str,
-                for_offer=True, sum_to_one=True, update: bool = True):
+def save_labels(input_file, destination_file: str, for_offer=True, sum_to_one=True, update: bool = True):
     data = read_json(input_file)
     labels = {text_id: recommender.get_labels(text, for_offer,
                                               get_dict_part(branches_weights, text['branches'] + ['Ogólne', 'Języki']),
                                               sum_to_one) for text_id, text in tqdm(data.items())}
     update_json(destination_file, labels) if update else write_json(destination_file, labels)
+
+
+def save_offers_embeddings_to_file(update: bool = False):
+    offers = read_json('files/offers.json')
+    offers_embeddings = get_offers_embeddings(offers, sentence_transformer)
+    update_json('files/offers_embeddings.json', offers_embeddings) if update \
+        else write_json('files/offers_embeddings.json', offers_embeddings)
+
+
+def save_employees_embeddings_to_file(update: bool = False):
+    employees = read_json('files/employees.json')
+    employees_embeddings = get_offers_embeddings(employees, sentence_transformer)
+    update_json('files/employees_embeddings.json', employees_embeddings) if update \
+        else write_json('files/employees_embeddings.json', employees_embeddings)
+
+
+def save_offers_labels():
+    save_labels('files/offers.json', 'files/offers_labels.json', True, True, False)
+
+
+def save_employees_labels():
+    save_labels('files/employees.json', 'files/employees_labels.json', False, True, False)
 
 
 labels_data, branches_weights = load_labels([('IT', 'files/labels_IT.json', 3),
@@ -37,3 +42,13 @@ labels_data, branches_weights = load_labels([('IT', 'files/labels_IT.json', 3),
                                             ('Administracja Biura', 'files/labels_AB.json', 2),
                                             ('Ogólne', 'files/labels_soft_skills.json', 1),
                                             ('Języki', 'files/labels_languages.json', 5)])
+
+
+if __name__ == '__main__':
+    recommender = Recommender(labels_data)
+    sentence_transformer = SentenceTransformer('sentence-transformers/LaBSE')
+
+    save_offers_labels()
+    save_offers_embeddings_to_file()
+    save_employees_labels()
+    save_employees_embeddings_to_file()

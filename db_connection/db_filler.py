@@ -173,8 +173,8 @@ def add_offers(with_embeddings=False):
                                        working_time, employer_id, duties_embeddings, description_embeddings,
                                        skills_embeddings))
             else:
-                query = f'INSERT INTO dbo.offers (description, duties, offer_name, salary_from, salary_to, working_time, ' \
-                        f'employer_id) VALUES (?, ?, ?, ?, ?, ?, ?);'
+                query = f'INSERT INTO dbo.offers (description, duties, offer_name, salary_from, salary_to, ' \
+                        f'working_time, employer_id) VALUES (?, ?, ?, ?, ?, ?, ?);'
                 cursor.execute(query, (description, duties, offer_name, salary_from, salary_to, working_time, employer_id))
             for localization in offer['localizations']:
                 if localization not in localizations:
@@ -274,8 +274,9 @@ def add_job_fairs():
                                organizer_id))
 
     for job_fair_id, is_active, employer in connections:
-        query = f"INSERT INTO dbo.job_fair_employer_participantions (employer_id, job_fair_id) VALUES (?, ?); "
-        cursor.execute(query, (employers_dict[employer], int(job_fair_id)))
+        query = f"INSERT INTO dbo.job_fair_employer_participation (is_accepted, employer_id, job_fair_id) " \
+                f"VALUES (?, ?, ?); "
+        cursor.execute(query, (is_active, employers_dict[employer], int(job_fair_id)))
 
 
 def reset_verification_tokens():
