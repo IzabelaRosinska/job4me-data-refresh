@@ -6,10 +6,11 @@ from tqdm import tqdm
 
 from utils.utils import *
 
-server = "tcp:miwmjob4me.database.windows.net,1433"
+db_username = os.getenv('AZURE_DB_USER')
+db_password = os.getenv('AZURE_DB_PASSWORD')
+server = os.getenv('AZURE_DB')
+
 database = 'miwm'
-db_username = "miwm"
-db_password = "job4meZPI"
 driver = '{ODBC Driver 17 for SQL Server}'
 
 conn = pyodbc.connect(f'SERVER={server};DATABASE={database};UID={db_username};PWD={db_password};DRIVER={driver}')
