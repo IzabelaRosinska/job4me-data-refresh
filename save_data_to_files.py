@@ -2,7 +2,7 @@ from sentence_transformers import SentenceTransformer
 
 from utils.file_reader import *
 from matching.recommendation import Recommender
-from utils.utils import get_dict_part
+from utils.utils import get_dict_part, get_json_writable_embeddings
 from process_data import *
 
 
@@ -17,15 +17,17 @@ def save_labels(input_file, destination_file: str, for_offer=True, sum_to_one=Tr
 def save_offers_embeddings_to_file(update: bool = False):
     offers = read_json('files/offers.json')
     offers_embeddings = get_offers_embeddings(offers, sentence_transformer)
-    update_json('files/offers_embeddings.json', offers_embeddings) if update \
-        else write_json('files/offers_embeddings.json', offers_embeddings)
+    json_writable_embeddings = get_json_writable_embeddings(offers_embeddings)
+    update_json('files/offers_embeddings.json', json_writable_embeddings) if update \
+        else write_json('files/offers_embeddings.json', json_writable_embeddings)
 
 
 def save_employees_embeddings_to_file(update: bool = False):
     employees = read_json('files/employees.json')
     employees_embeddings = get_offers_embeddings(employees, sentence_transformer)
-    update_json('files/employees_embeddings.json', employees_embeddings) if update \
-        else write_json('files/employees_embeddings.json', employees_embeddings)
+    json_writable_embeddings = get_json_writable_embeddings(employees_embeddings)
+    update_json('files/employees_embeddings.json', json_writable_embeddings) if update \
+        else write_json('files/employees_embeddings.json', json_writable_embeddings)
 
 
 def save_offers_labels():

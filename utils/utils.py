@@ -100,3 +100,10 @@ def cosine_similarity(A, B):
     norm_B = np.linalg.norm(B)
     cos_sim = dot_product / (norm_A * norm_B)
     return cos_sim
+
+
+def get_json_writable_embeddings(embeddings):
+    json_writable_embeddings = {}
+    for elem_id, elem_embeddings in embeddings.items():
+        json_writable_embeddings[elem_id] = {key: value.tolist() for key, value in elem_embeddings.items()}
+    return json_writable_embeddings

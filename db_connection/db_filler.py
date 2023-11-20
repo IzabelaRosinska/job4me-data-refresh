@@ -1,3 +1,4 @@
+import os
 import random
 from datetime import datetime
 
@@ -53,7 +54,7 @@ def reset_table(table_name, with_id=True):
 
 
 def reset_job_fairs():
-    reset_table('dbo.job_fair_employer_participantions')
+    reset_table('dbo.job_fair_employer_participation')
     reset_table('dbo.job_fairs')
 
 
@@ -233,7 +234,7 @@ def add_employees():
 
 def add_organizers():
     organizers = read_json('../files/organizers.json')
-    for organizer in organizers.values():
+    for organizer in tqdm(organizers.values()):
         email = organizer['email']
         locked = 0
         password = None
@@ -258,22 +259,22 @@ def add_job_fairs():
     connections = read_json('../files/job_fairs_employers_connection.json')
     employers_dict = get_employers_dict()
 
-    for job_fair_id, job_fair in job_fairs.items():
+    for job_fair_id, job_fair in tqdm(job_fairs.items()):
         address = job_fair['address']
-        data_end = datetime.strptime(job_fair['data_end'], "%Y-%m-%d %H:%M:%S")
-        data_start = datetime.strptime(job_fair['data_start'], "%Y-%m-%d %H:%M:%S")
+        date_end = datetime.strptime(job_fair['date_end'], "%Y-%m-%d %H:%M:%S")
+        date_start = datetime.strptime(job_fair['date_start'], "%Y-%m-%d %H:%M:%S")
         description = job_fair['description']
         display_description = job_fair['display_description']
         name = job_fair['name']
         photo = "https://picsum.photos/100/100"
         organizer_id = job_fair['organizer']
 
-        query = f"INSERT INTO dbo.job_fairs (address, data_end, data_start, description, display_description, name, " \
+        query = f"INSERT INTO dbo.job_fairs (address, date_end, date_start, description, display_description, name, " \
                 f"photo, organizer_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?); "
-        cursor.execute(query, (address, data_end, data_start, description, display_description, name, photo,
+        cursor.execute(query, (address, date_end, date_start, description, display_description, name, photo,
                                organizer_id))
 
-    for job_fair_id, is_active, employer in connections:
+    for job_fair_id, is_active, employer in tqdm(connections):
         query = f"INSERT INTO dbo.job_fair_employer_participation (is_accepted, employer_id, job_fair_id) " \
                 f"VALUES (?, ?, ?); "
         cursor.execute(query, (is_active, employers_dict[employer], int(job_fair_id)))

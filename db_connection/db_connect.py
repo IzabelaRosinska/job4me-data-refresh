@@ -82,18 +82,18 @@ def get_all_offers(cursor: pyodbc.Cursor):
 def save_offer_embeddings_to_db(cursor, offer_id, embeddings):
     query = f'UPDATE dbo.job_offers SET duties_embeddings = ?, description_embeddings = ?, skills_embeddings = ?, ' \
             f'actual = ? WHERE id = {offer_id}; '
-    cursor.execute(query, (embeddings["duties"].tobytes() if "duties" in embeddings else None,
-                           embeddings["description"].tobytes() if "description" in embeddings else None,
-                           embeddings["requirements+extra_skills"].tobytes() if "requirements+extra_skills" in
-                                                                                embeddings else None, 1))
+    cursor.execute(query, (bytes(embeddings["duties"]) if "duties" in embeddings else None,
+                           bytes(embeddings["description"]) if "description" in embeddings else None,
+                           bytes(embeddings["requirements+extra_skills"]) if "requirements+extra_skills" in
+                                                                             embeddings else None, 1))
 
 
 def save_employee_embeddings_to_db(cursor, employee_id, embeddings):
     query = f'UPDATE dbo.employees SET experience_embeddings = ?, skills_embeddings = ?, description_embeddings = ?, ' \
-            f'actual = ? WHERE id = {employee_id}; '
-    cursor.execute(query, (embeddings["work_experience+projects"].tobytes() if "work_experience+projects" in embeddings
-                           else None, embeddings["skills"].tobytes() if "skills" in embeddings else None,
-                           embeddings["about_me+hobbies"].tobytes() if "about_me+hobbies" in embeddings else None, 1))
+            f'is_embedding_current = ? WHERE id = {employee_id}; '
+    cursor.execute(query, (bytes(embeddings["work_experience+projects"]) if "work_experience+projects" in embeddings
+                           else None, bytes(embeddings["skills"]) if "skills" in embeddings else None,
+                           bytes(embeddings["about_me+hobbies"]) if "about_me+hobbies" in embeddings else None, 1))
 
 
 def get_employee_by_id(cursor: pyodbc.Cursor, employee_id: int):
@@ -147,7 +147,7 @@ def put_filtered_offers_list_values(cursor, offers, condition):
     if condition == 'active':
         condition_string = 'WHERE jo.active=1'
     elif condition == 'actual':
-        condition_string = 'WHERE jo.is_embeddings_actual=0'
+        condition_string = 'WHERE jo.is_embedding_current=0 OR jo.is_embedding_current IN NULL'
     else:
         condition_string = ''
     cursor.execute(f'SELECT ex.job_offer_id, ex.description FROM dbo.extra_skills ex JOIN dbo.job_offers jo '
@@ -184,7 +184,7 @@ def get_filtered_offers(cursor: pyodbc.Cursor, condition):
     if condition == 'active':
         condition_string = 'WHERE jo.active = 1'
     elif condition == 'actual':
-        condition_string = 'WHERE jo.actual = 0'
+        condition_string = 'WHERE jo.is_embedding_current = 0 OR jo.is_embedding_current IS NULL'
     else:
         condition_string = ''
     cursor.execute(f'SELECT id, offer_name, salary_from, duties, description, duties_embeddings, '
@@ -207,23 +207,24 @@ def get_filtered_offers(cursor: pyodbc.Cursor, condition):
 
 
 def get_employers_to_update(cursor: pyodbc.Cursor):
-    cursor.execute(f'SELECT id, about_me, interests FROM dbo.employees WHERE is_embeddings_actual = 0;')
+    cursor.execute(f'SELECT id, about_me, interests FROM dbo.employees '
+                   f'WHERE is_embedding_current = 0 OR is_embedding_current IS NULL;')
     rows = cursor.fetchall()
     employees = {row[0]: {'about_me': row[1], 'hobbies': row[2]} for row in rows}
     cursor.execute(f'SELECT ed.employee_id, ed.description FROM dbo.education ed JOIN dbo.employees e '
-                   f'ON ed.employee_id = e.id WHERE e.is_embeddings_actual = 0;')
+                   f'ON ed.employee_id = e.id WHERE e.is_embedding_current = 0 OR is_embedding_current IS NULL;')
     for row in cursor.fetchall():
         employees[row[0]]['education'] = row[1]
     cursor.execute(f'SELECT ex.employee_id, ex.description FROM dbo.experience ex JOIN dbo.employees e '
-                   f'ON ex.employee_id = e.id WHERE e.is_embeddings_actual = 0;')
+                   f'ON ex.employee_id = e.id WHERE e.is_embedding_current = 0 OR is_embedding_current IS NULL;')
     for row in cursor.fetchall():
         employees[row[0]]['experience'] = row[1]
     cursor.execute(f'SELECT p.employee_id, p.description FROM dbo.projects p JOIN dbo.employees e '
-                   f'ON p.employee_id = e.id WHERE e.is_embeddings_actual = 0;')
+                   f'ON p.employee_id = e.id WHERE e.is_embedding_current = 0 OR is_embedding_current IS NULL;')
     for row in cursor.fetchall():
         employees[row[0]]['projects'] = row[1]
     cursor.execute(f'SELECT s.employee_id, s.description FROM dbo.skills s JOIN dbo.employees e '
-                   f'ON s.employee_id = e.id WHERE e.is_embeddings_actual = 0;')
+                   f'ON s.employee_id = e.id WHERE e.is_embedding_current = 0 OR is_embedding_current IS NULL;')
     for row in cursor.fetchall():
         employees[row[0]]['skills'] = row[1]
     return employees

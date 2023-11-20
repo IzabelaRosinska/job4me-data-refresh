@@ -10,10 +10,9 @@ def get_embeddings(data_to_process: dict, sections_to_process: list[list[str]], 
         data_embeddings = {}
         for keys in sections_to_process:
             text_to_process = "\n".join([('\n'.join(data[key]) if isinstance(data[key], list) else data[key])
-                                         for key in keys if key in data])
+                                         for key in keys if key in data if data[key]])
             if text_to_process:
-                data_embeddings['+'.join(keys)] = \
-                    transformer.encode(text_to_process, convert_to_tensor=True).tolist()
+                data_embeddings['+'.join(keys)] = transformer.encode(text_to_process)
         embeddings[data_id] = data_embeddings
     return embeddings
 
