@@ -21,6 +21,10 @@ SAVE_CHANGES_TO_FILES = False
 
 url = 'https://job4me-recommendation.azurewebsites.net'
 
+headers = {
+    'X-API-Key': os.getenv('API_KEY')
+}
+
 transformer = SentenceTransformer('sentence-transformers/LaBSE')
 
 
@@ -38,7 +42,7 @@ def update_embeddings():
             conn.commit()
         if SAVE_CHANGES_TO_FILES:
             update_json('files/employees_embeddings.json', get_json_writable_embeddings(employees_embeddings))
-        requests.get(url + '/update_employees_embeddings')
+        requests.get(url + '/update_employees_embeddings', headers)
 
     if UPDATE_OFFERS:
         offers_to_update = get_filtered_offers(cursor, 'actual')
@@ -49,7 +53,7 @@ def update_embeddings():
             conn.commit()
         if SAVE_CHANGES_TO_FILES:
             update_json('files/offers_embeddings.json', offers_embeddings)
-        requests.get(url + '/update_offers_embeddings')
+        requests.get(url + '/update_offers_embeddings', headers)
 
     conn.commit()
     conn.close()
