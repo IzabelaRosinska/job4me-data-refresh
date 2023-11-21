@@ -1,5 +1,6 @@
 import os
 
+import requests
 import schedule
 import time
 
@@ -8,7 +9,6 @@ from utils.file_reader import *
 from process_data import *
 from utils.utils import get_json_writable_embeddings
 
-
 server = os.getenv('AZURE_DB')
 database = 'miwm'
 db_username = os.getenv('AZURE_DB_USER')
@@ -16,15 +16,18 @@ db_password = os.getenv('AZURE_DB_PASSWORD')
 driver = '{ODBC Driver 17 for SQL Server}'
 
 UPDATE_EMPLOYEES = True
-UPDATE_OFFERS = False
+UPDATE_OFFERS = True
 SAVE_CHANGES_TO_FILES = False
+
+url = 'https://job4me-recommendation.azurewebsites.net'
+
+transformer = SentenceTransformer('sentence-transformers/LaBSE')
 
 
 def update_embeddings():
     print('Start updating embeddings')
     conn = pyodbc.connect(f'SERVER={server};DATABASE={database};UID={db_username};PWD={db_password};DRIVER={driver}')
     cursor = conn.cursor()
-    transformer = SentenceTransformer('sentence-transformers/LaBSE')
 
     if UPDATE_EMPLOYEES:
         employees_to_update = get_employers_to_update(cursor)
@@ -35,6 +38,7 @@ def update_embeddings():
             conn.commit()
         if SAVE_CHANGES_TO_FILES:
             update_json('files/employees_embeddings.json', get_json_writable_embeddings(employees_embeddings))
+        requests.get(url + '/update_employees_embeddings')
 
     if UPDATE_OFFERS:
         offers_to_update = get_filtered_offers(cursor, 'actual')
@@ -45,13 +49,14 @@ def update_embeddings():
             conn.commit()
         if SAVE_CHANGES_TO_FILES:
             update_json('files/offers_embeddings.json', offers_embeddings)
+        requests.get(url + '/update_offers_embeddings')
 
     conn.commit()
     conn.close()
     print('Embeddings updated')
 
 
-schedule.every(1).seconds.do(update_embeddings)
+schedule.every(5).minutes.do(update_embeddings)
 
 while True:
     schedule.run_pending()
