@@ -3,6 +3,7 @@ import random
 from utils.file_reader import read_json
 from utils.utils import get_salary_value
 
+
 offers = read_json('../files/offers.json')
 
 
