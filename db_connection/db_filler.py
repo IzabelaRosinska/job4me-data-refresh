@@ -6,6 +6,7 @@ from tqdm import tqdm
 
 from utils.utils import *
 
+
 db_username = os.getenv('AZURE_DB_USER')
 db_password = os.getenv('AZURE_DB_PASSWORD')
 server = os.getenv('AZURE_DB')
