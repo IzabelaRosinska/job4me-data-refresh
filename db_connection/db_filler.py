@@ -1,17 +1,18 @@
+import os
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pyodbc
 from tqdm import tqdm
 
+from utils.file_reader import read_json
 from utils.utils import *
 
 
 db_username = os.getenv('AZURE_DB_USER')
 db_password = os.getenv('AZURE_DB_PASSWORD')
 server = os.getenv('AZURE_DB')
-
-database = 'miwm'
+database = 'job4me'
 driver = '{ODBC Driver 17 for SQL Server}'
 
 conn = pyodbc.connect(f'SERVER={server};DATABASE={database};UID={db_username};PWD={db_password};DRIVER={driver}')
@@ -52,8 +53,9 @@ def reset_table(table_name, with_id=True):
 
 
 def reset_job_fairs():
-    reset_table('dbo.job_fair_employer_participantions')
+    reset_table('dbo.job_fair_employer_participation')
     reset_table('dbo.job_fairs')
+    reset_table('dbo.payments')
 
 
 def reset_organizers():
@@ -111,7 +113,6 @@ def add_list_values_to_offer(parent_id, table_name, descriptions, max_char):
 
 def add_connections_to_offer(parent_id, table_name, other_id_name, connected_ids):
     for val in connected_ids:
-        print(parent_id, val, table_name)
         query = f'INSERT INTO {table_name} (job_offer_id, {other_id_name}) VALUES (?, ?)'
         cursor.execute(query, (parent_id, val))
 
@@ -150,51 +151,56 @@ def add_offers(with_embeddings=False):
     i = 0
     companies_dict = {name: str(i := i + 1) for name in companies}
     for j, (offer, offer_embeddings) in tqdm(enumerate(zip(offers.values(), embeddings.values()))):
-        if j < 100:
-            description = offer['description'] if offer['description'] else None
-            duties = offer['duties']
-            offer_name = offer['name']
-            salary_from = offer['min_salary']
-            salary_to = offer['max_salary'] if 'max_salary' in offer else None
-            working_time = offer['working_time']
-            employer_id = companies_dict[offer['company']]
-            if with_embeddings:
-                duties_embeddings = np.array(offer_embeddings['duties'], dtype=np.float32).tobytes() \
-                    if 'duties' in offer_embeddings else None
-                description_embeddings = np.array(offer_embeddings['description'], dtype=np.float32).tobytes() \
-                    if 'description' in offer_embeddings else None
-                skills_embeddings = np.array(offer_embeddings['requirements+extra_skills'], dtype=np.float32).tobytes() \
-                    if 'requirements+extra_skills' in offer_embeddings else None
-                query = f'INSERT INTO dbo.job_offers (description, duties, offer_name, salary_from, salary_to, ' \
-                        f'working_time, employer_id, duties_embeddings, description_embeddings, skills_embeddings) ' \
-                        f'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);'
-                cursor.execute(query, (cut(description, 490), cut(duties, 990), offer_name, salary_from, salary_to,
-                                       working_time, employer_id, duties_embeddings, description_embeddings,
-                                       skills_embeddings))
-            else:
-                query = f'INSERT INTO dbo.offers (description, duties, offer_name, salary_from, salary_to, working_time, ' \
-                        f'employer_id) VALUES (?, ?, ?, ?, ?, ?, ?);'
-                cursor.execute(query, (description, duties, offer_name, salary_from, salary_to, working_time, employer_id))
-            for localization in offer['localizations']:
-                if localization not in localizations:
-                    query = f'INSERT INTO dbo.localizations (city) VALUES (?);'
-                    cursor.execute(query, localization)
-                    loc_id += 1
-                    localizations[localization] = loc_id
-                add_connections_to_offer(j + last_inserted_id + 1, 'dbo.job_offer_localizations', 'localization_id',
-                                         [localizations[localization]])
+        if j < last_inserted_id:
+            continue
+        description = offer['description'] if offer['description'] else None
+        duties = offer['duties']
+        offer_name = offer['name']
+        salary_from = offer['min_salary']
+        salary_to = offer['max_salary'] if 'max_salary' in offer else None
+        working_time = offer['working_time']
+        employer_id = companies_dict[offer['company']]
+        is_active = 1
+        is_embedding_current = 0
+        if with_embeddings:
+            duties_embeddings = np.array(offer_embeddings['duties'], dtype=np.float32).tobytes() \
+                if 'duties' in offer_embeddings else None
+            description_embeddings = np.array(offer_embeddings['description'], dtype=np.float32).tobytes() \
+                if 'description' in offer_embeddings else None
+            skills_embeddings = np.array(offer_embeddings['requirements+extra_skills'], dtype=np.float32).tobytes() \
+                if 'requirements+extra_skills' in offer_embeddings else None
+            query = f'INSERT INTO dbo.job_offers (description, duties, offer_name, salary_from, salary_to, ' \
+                    f'working_time, employer_id, duties_embeddings, description_embeddings, skills_embeddings, ' \
+                    f'is_active, is_embedding_current) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);'
+            cursor.execute(query, (cut(description, 450)[:480], cut(duties, 900)[:950], offer_name, salary_from, salary_to,
+                                   working_time, employer_id, duties_embeddings, description_embeddings,
+                                   skills_embeddings, is_active, 1))
+        else:
+            query = f'INSERT INTO dbo.job_offers (description, duties, offer_name, salary_from, salary_to, ' \
+                    f'working_time, employer_id, duties_embeddings, description_embeddings, skills_embeddings, ' \
+                    f'is_active, is_embedding_current) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);'
+            cursor.execute(query, (cut(description, 480), cut(duties, 950), offer_name, salary_from, salary_to, working_time,
+                                   employer_id, None, None, None, is_active, 0))
+        for localization in offer['localizations']:
+            if localization not in localizations:
+                query = f'INSERT INTO dbo.localizations (city) VALUES (?);'
+                cursor.execute(query, localization)
+                loc_id += 1
+                localizations[localization] = loc_id
+            add_connections_to_offer(j + 1, 'dbo.job_offer_localizations', 'localization_id',
+                                     [localizations[localization]])
 
-            add_list_values_to_offer(j + last_inserted_id + 1, 'dbo.extra_skills', offer['extra_skills'], 180)
-            add_list_values_to_offer(j + last_inserted_id + 1, 'dbo.requirements', offer['requirements'], 220)
-            add_connections_to_offer(j + last_inserted_id + 1, 'dbo.job_offer_levels', 'level_id',
-                                     [levels.index(level) + 1 for level in offer['levels']])
-            add_connections_to_offer(j + last_inserted_id + 1, 'dbo.job_offer_contract_types', 'contract_type_id',
-                                     [contract_types.index(val) + 1 for val in offer['contract_types']])
-            add_connections_to_offer(j + last_inserted_id + 1, 'dbo.job_offer_employment_forms',
-                                     'employment_form_id', [forms.index(val) + 1 for val in offer['forms']])
-            add_connections_to_offer(j + last_inserted_id + 1, 'dbo.job_offer_industries', 'industry_id',
-                                     [industries.index(val) + 1 for val in offer['branches']])
-            conn.commit()
+        add_list_values_to_offer(j + 1, 'dbo.extra_skills', offer['extra_skills'], 180)
+        add_list_values_to_offer(j + 1, 'dbo.requirements', offer['requirements'], 220)
+        add_connections_to_offer(j + 1, 'dbo.job_offer_levels', 'level_id',
+                                 [levels.index(level) + 1 for level in offer['levels']])
+        add_connections_to_offer(j + 1, 'dbo.job_offer_contract_types', 'contract_type_id',
+                                 [contract_types.index(val) + 1 for val in offer['contract_types']])
+        add_connections_to_offer(j + 1, 'dbo.job_offer_employment_forms',
+                                 'employment_form_id', [forms.index(val) + 1 for val in offer['forms']])
+        add_connections_to_offer(j + 1, 'dbo.job_offer_industries', 'industry_id',
+                                 [industries.index(val) + 1 for val in offer['branches']])
+        conn.commit()
 
 
 def reset_employees():
@@ -220,10 +226,16 @@ def add_employees():
         first_name = employee['name'].split(' ')[0]
         interests = employee['hobbies'] if employee['about_me'] else None
         last_name = employee['name'].split(' ')[1]
+        description_embeddings = None
+        experience_embeddings = None
+        is_embedding_current = 0
+        skills_embeddings = None
         query = f"INSERT INTO dbo.employees (email, locked, password, telephone, role, about_me, contact_email, " \
-                f"first_name, interests, last_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?); "
+                f"first_name, interests, last_name, description_embeddings, experience_embeddings," \
+                f"is_embedding_current, skills_embeddings) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?); "
         cursor.execute(query, (email, locked, password, telephone, role, about_me, contact_email, first_name, interests,
-                               last_name))
+                               last_name, description_embeddings, experience_embeddings, is_embedding_current,
+                               skills_embeddings))
         add_list_values_to_employee(i + 1, 'dbo.education', employee['education'])
         add_list_values_to_employee(i + 1, 'dbo.projects', employee['projects'])
         add_list_values_to_employee(i + 1, 'dbo.experience', employee['work_experience'])
@@ -232,7 +244,7 @@ def add_employees():
 
 def add_organizers():
     organizers = read_json('../files/organizers.json')
-    for organizer in organizers.values():
+    for organizer in tqdm(organizers.values()):
         email = organizer['email']
         locked = 0
         password = None
@@ -257,24 +269,60 @@ def add_job_fairs():
     connections = read_json('../files/job_fairs_employers_connection.json')
     employers_dict = get_employers_dict()
 
-    for job_fair_id, job_fair in job_fairs.items():
+    for i, (job_fair_id, job_fair) in tqdm(enumerate(job_fairs.items())):
         address = job_fair['address']
-        data_end = datetime.strptime(job_fair['data_end'], "%Y-%m-%d %H:%M:%S")
-        data_start = datetime.strptime(job_fair['data_start'], "%Y-%m-%d %H:%M:%S")
+        date_end = datetime.strptime(job_fair['date_end'], "%Y-%m-%d %H:%M:%S")
+        date_start = datetime.strptime(job_fair['date_start'], "%Y-%m-%d %H:%M:%S")
         description = job_fair['description']
         display_description = job_fair['display_description']
         name = job_fair['name']
         photo = "https://picsum.photos/100/100"
         organizer_id = job_fair['organizer']
+        payment_id = i + 1
+        generate_payment()
+        query = f"INSERT INTO dbo.job_fairs (address, date_end, date_start, description, display_description, name, " \
+                f"photo, organizer_id, payment_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?); "
+        cursor.execute(query, (address, date_end, date_start, description, display_description, name, photo,
+                               organizer_id, payment_id))
 
-        query = f"INSERT INTO dbo.job_fairs (address, data_end, data_start, description, display_description, name, " \
-                f"photo, organizer_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?); "
-        cursor.execute(query, (address, data_end, data_start, description, display_description, name, photo,
-                               organizer_id))
+    for job_fair_id, is_active, employer in tqdm(connections):
+        query = f"INSERT INTO dbo.job_fair_employer_participation (is_accepted, employer_id, job_fair_id) " \
+                f"VALUES (?, ?, ?); "
+        cursor.execute(query, (is_active, employers_dict[employer], int(job_fair_id)))
 
-    for job_fair_id, is_active, employer in connections:
-        query = f"INSERT INTO dbo.job_fair_employer_participantions (employer_id, job_fair_id) VALUES (?, ?); "
-        cursor.execute(query, (employers_dict[employer], int(job_fair_id)))
+
+def random_date(start_date, end_date):
+    start_datetime = datetime.strptime(start_date, "%Y-%m-%d %H:%M:%S")
+    end_datetime = datetime.strptime(end_date, "%Y-%m-%d %H:%M:%S")
+
+    delta = end_datetime - start_datetime
+    random_days = random.randint(0, delta.days)
+    random_hours = random.randint(0, 24)
+    random_minutes = random.randint(0, 60)
+    random_seconds = random.randint(0, 60)
+
+    date = start_datetime + timedelta(
+        days=random_days,
+        hours=random_hours,
+        minutes=random_minutes,
+        seconds=random_seconds
+    )
+    return date.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def generate_session_id():
+    session_id = 'generate_'
+    for i in range(6):
+        session_id += str(random.randint(0, 10))
+    return session_id
+
+
+def generate_payment():
+    creation_timestamp = random_date("2023-01-01 00:00:00", "2023-10-01 00:00:00")
+    is_paid = 1 if random.uniform(0, 1) > 0.1 else 0
+    session_id = generate_session_id()
+    query = f"INSERT INTO dbo.payments (creation_timestamp, is_paid, session_id) VALUES (?, ?, ?); "
+    cursor.execute(query, (creation_timestamp, is_paid, session_id))
 
 
 def reset_verification_tokens():
@@ -294,10 +342,10 @@ reset_employees()
 reset_offers()
 reset_employers()
 add_all_simple_rows()
+add_employers()
 add_organizers()
 add_job_fairs()
-add_employers()
-add_offers(True)
+add_offers(False)
 add_employees()
 
 conn.commit()

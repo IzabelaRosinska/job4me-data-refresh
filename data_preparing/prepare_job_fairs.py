@@ -41,6 +41,6 @@ def create_employer_job_fair_matches():
         compatible = [name for name, company_branches in companies_branches.items() if company_branches & branches]
         print(job_fair['branches'])
         print(len(compatible))
-        choice = random.choices(compatible, k=min(limit, len(compatible)))
+        choice = random.sample(compatible, k=min(limit, len(compatible)))
         connections += [[job_fair_id, 0 if random.uniform(0, 1) > accept else 1, company] for company in choice]
     write_json('../files/job_fairs_employers_connection.json', connections)
